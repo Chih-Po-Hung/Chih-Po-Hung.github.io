@@ -20,6 +20,14 @@
     main { max-width: 640px; }
     h1 { font-size: 2.5rem; margin-bottom: 1rem; }
     p { font-size: 1.125rem; line-height: 1.8; color: #c9cdd6; margin-bottom: 0.75rem; }
+    .works { margin-top: 2rem; display: flex; flex-direction: column; gap: 0.75rem; }
+    .works a {
+      display: block; padding: 1rem 1.25rem; border: 1px solid #2a2f3a; border-radius: 12px;
+      color: #f2f2f2; text-decoration: none; text-align: left; background: #171a21;
+    }
+    .works a:hover { border-color: #7c6cff; }
+    .works a b { display: block; font-size: 1.1rem; margin-bottom: 0.25rem; }
+    .works a span { font-size: 0.95rem; color: #9aa3b2; }
   </style>
 </head>
 <body>
@@ -27,6 +35,12 @@
     <h1>Felix's Playground</h1>
     <p>這裡是 Felix 的前端開發遊樂場，部署在 GitHub Pages 上。</p>
     <p>更多專案將會陸續加入這裡，敬請期待。</p>
+    <div class="works">
+      <a href="lotus.html">
+        <b>🪷 Magical Lotus</b>
+        <span>粒子蓮花綻放循環 — 發光點陣花瓣、HUD 遙測、生成式環境音效</span>
+      </a>
+    </div>
   </main>
 </body>
 </html>

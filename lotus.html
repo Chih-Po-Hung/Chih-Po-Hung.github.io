@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Magical Lotus — Felix's Playground</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #000; overflow: hidden; }
+  body {
+    font-family: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    color: #cfd8dc; display: flex; align-items: center; justify-content: center;
+  }
+  #stage {
+    position: relative; height: 100vh; height: 100dvh; aspect-ratio: 4 / 5;
+    max-width: 100vw; background: #000; overflow: hidden;
+  }
+  @media (max-aspect-ratio: 4/5) { #stage { width: 100vw; height: auto; aspect-ratio: 4 / 5; } }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .hud { position: absolute; font-size: 11px; letter-spacing: .12em; color: rgba(207,216,220,.75);
+    text-shadow: 0 0 6px rgba(0,0,0,.9); pointer-events: none; line-height: 1.7; z-index: 3; }
+  .hud b { color: #e8f5e9; font-weight: 600; }
+  .tl { top: 14px; left: 16px; }
+  .tr { top: 14px; right: 16px; text-align: right; }
+  .bl { bottom: 14px; left: 16px; }
+  .br { bottom: 14px; right: 16px; text-align: right; }
+  .corner { position: absolute; width: 18px; height: 18px; border: 1px solid rgba(207,216,220,.5); z-index: 3; pointer-events: none; }
+  .c-tl { top: 10px; left: 10px; border-right: 0; border-bottom: 0; }
+  .c-tr { top: 10px; right: 10px; border-left: 0; border-bottom: 0; }
+  .c-bl { bottom: 10px; left: 10px; border-right: 0; border-top: 0; }
+  .c-br { bottom: 10px; right: 10px; border-left: 0; border-top: 0; }
+  #soundBtn {
+    position: absolute; left: 50%; bottom: 54px; transform: translateX(-50%); z-index: 5;
+    font: inherit; font-size: 11px; letter-spacing: .18em; color: #e8f5e9;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(232,245,233,.4);
+    padding: 8px 16px; border-radius: 999px; cursor: pointer; backdrop-filter: blur(4px);
+  }
+  #soundBtn:hover { background: rgba(255,255,255,.14); }
+  #soundBtn.on { background: rgba(124,252,154,.16); border-color: rgba(124,252,154,.7); }
+  #hint { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 3;
+    font-size: 10px; letter-spacing: .14em; color: rgba(207,216,220,.45); pointer-events: none; white-space: nowrap; }
+  #credit { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); z-index: 3;
+    font-size: 10px; letter-spacing: .1em; color: rgba(207,216,220,.35); white-space: nowrap; }
+  #credit a { color: rgba(207,216,220,.55); text-decoration: none; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c"></canvas>
+  <div class="corner c-tl"></div><div class="corner c-tr"></div>
+  <div class="corner c-bl"></div><div class="corner c-br"></div>
+  <div class="hud tl"><b>MAGICAL LOTUS</b><br>NELUMBO &middot; 061A</div>
+  <div class="hud tr"><span id="xy">X -0.04 &nbsp;Y 0.05</span><br><span id="ang">&ang; -7.2&deg;</span></div>
+  <div class="hud bl">THERMAL<br><span id="bloom">BLOOM 00.0%</span></div>
+  <div class="hud br"><span id="temp">36.5&deg;C</span><br><span id="fps">60 FPS</span></div>
+  <button id="soundBtn">&#9834; SOUND ON</button>
+  <div id="hint">CLICK ANYWHERE FOR A PULSE</div>
+  <div id="credit">inspired by <a href="https://x.com/gruffwashere/status/2120513099824570664" target="_blank" rel="noopener">@gruffwashere</a> &middot; generative, no video</div>
+</div>
+<script>
+"use strict";
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const stage = document.getElementById('stage');
+let W = 0, H = 0, DPR = 1, R = 0, CX = 0, CY = 0, stemTop = 0, stemBot = 0;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = stage.clientWidth; H = stage.clientHeight;
+  canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  R = Math.min(W, H) * 0.38;
+  CX = W * 0.5; CY = H * 0.47;
+  stemTop = CY + R * 0.55; stemBot = H * 0.94;
+  buildField();
+}
+window.addEventListener('resize', resize);
+
+/* ---------- palette ---------- */
+const STOPS = [
+  [0.00, [255, 214, 106]],  // gold core
+  [0.35, [255, 120, 200]],  // magenta
+  [0.65, [150, 92, 255]],   // violet
+  [0.85, [80, 160, 255]],   // blue
+  [1.00, [90, 230, 190]]    // teal tip
+];
+function lerpColor(t) {
+  for (let i = 0; i < STOPS.length - 1; i++) {
+    const [t0, c0] = STOPS[i], [t1, c1] = STOPS[i + 1];
+    if (t <= t1) {
+      const k = (t - t0) / (t1 - t0);
+      return [c0[0] + (c1[0] - c0[0]) * k, c0[1] + (c1[1] - c0[1]) * k, c0[2] + (c1[2] - c0[2]) * k];
+    }
+  }
+  return STOPS[STOPS.length - 1][1];
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+const TAU = Math.PI * 2;
+
+/* ---------- particle field ---------- */
+// Petal layers: count, length (xR), width (xR), fan spread, base angle offset
+const LAYERS = [
+  { n: 5, len: 0.55, wid: 0.44, spread: 0.22, off: 0.00, glow: 1.00 },
+  { n: 7, len: 0.80, wid: 0.46, spread: 0.48, off: 0.20, glow: 0.95 },
+  { n: 9, len: 1.00, wid: 0.42, spread: 0.72, off: 0.10, glow: 0.88 }
+];
+// One particle: x,y in bloom-local px (origin at bloom centre), plus:
+//   u (0 base -> 1 tip), layer, size, tw (twinkle speed), ph (phase), col [r,g,b], scatter vec
+let P = [];       // main bloom particles
+let buds = [];    // satellite buds: {x, y, s, ph, pts: [...]}
+let stemPts = []; // stem particles
+let bokeh = [];   // floating squares
+let sparks = [];  // click bursts
+
+function petalPoint(layer, phi, u, v) {
+  // phi: fan angle from straight up; u: along petal; v: across (-1..1)
+  // tips converge back toward vertical as they grow -> cup / bowl silhouette
+  const a = phi * (1 - 0.6 * u * u);
+  const lenK = layer.len * R * (1 - 0.22 * Math.abs(phi) / Math.max(layer.spread, 0.2));
+  const len = lenK * (0.25 + 0.75 * u);
+  const wdt = layer.wid * R * Math.sin(Math.PI * Math.pow(u, 0.75));
+  const px = Math.sin(a) * len + Math.cos(a) * v * wdt;
+  const py = -Math.cos(a) * len + Math.sin(a) * v * wdt * 0.4 + R * 0.22;
+  return [px, py];
+}
+
+function buildField() {
+  P = []; stemPts = []; bokeh = []; buds = [];
+  const total = Math.round(Math.min(9500, Math.max(5200, W * H / 90)));
+  const per = Math.floor(total / 3);
+  LAYERS.forEach((L, li) => {
+    for (let i = 0; i < per; i++) {
+      const k = Math.floor(Math.random() * L.n);
+      const phi = (k - (L.n - 1) / 2) * (L.spread * 2 / Math.max(L.n - 1, 1)) + L.off * 0.3;
+      const u = Math.pow(Math.random(), 0.7);
+      const v = rnd(-1, 1) * (0.35 + 0.65 * Math.random());
+      const [px, py] = petalPoint(L, phi, u, v);
+      const col = lerpColor(Math.min(1, u * 0.9 + li * 0.08));
+      P.push({ x: px, y: py, u, li, s: rnd(1.1, 2.6), tw: rnd(0.6, 2.4), ph: rnd(0, TAU),
+        col, sx: rnd(-1, 1), sy: rnd(-1, -0.2), glow: L.glow });
+    }
+  });
+  // golden seed pod: dense disc at centre
+  for (let i = 0; i < 380; i++) {
+    const a = rnd(0, TAU), r = Math.sqrt(Math.random()) * R * 0.17;
+    P.push({ x: Math.cos(a) * r, y: Math.sin(a) * r * 0.8 + R * 0.08, u: 0.05, li: 0,
+      s: rnd(1.0, 2.0), tw: rnd(1, 3), ph: rnd(0, TAU), col: [255, 205, 90],
+      sx: rnd(-1, 1), sy: rnd(-1, -0.2), glow: 0.55 });
+  }
+  // stem: green dotted line, slightly curved
+  const nStem = 260;
+  for (let i = 0; i < nStem; i++) {
+    const t = i / nStem;
+    const x = CX + Math.sin(t * 2.2) * R * 0.03 + rnd(-1.5, 1.5);
+    const y = stemBot - t * (stemBot - stemTop);
+    stemPts.push({ x, y, t, s: rnd(1, 2.4), tw: rnd(0.5, 2), ph: rnd(0, TAU) });
+  }
+  // satellite buds (small lotuses, phase-shifted)
+  buds = [
+    { fx: 0.20, fy: 0.74, s: 0.30, ph: 0.35, pts: [] },
+    { fx: 0.80, fy: 0.70, s: 0.24, ph: 0.62, pts: [] }
+  ];
+  buds.forEach(b => {
+    for (let i = 0; i < 700; i++) {
+      const L = LAYERS[i % 3];
+      const k = Math.floor(Math.random() * L.n);
+      const phi = (k - (L.n - 1) / 2) * (L.spread * 2 / Math.max(L.n - 1, 1));
+      const u = Math.pow(Math.random(), 0.7);
+      const v = rnd(-1, 1);
+      const [px, py] = petalPoint(L, phi, u, v);
+      b.pts.push({ x: px * b.s, y: py * b.s, u, s: rnd(1, 2.2), tw: rnd(0.6, 2.4),
+        ph: rnd(0, TAU), col: lerpColor(Math.min(1, u * 0.9 + 0.1)) });
+    }
+    // gold heart for each bud
+    for (let i = 0; i < 90; i++) {
+      const a = rnd(0, TAU), r = Math.sqrt(Math.random()) * R * 0.10 * b.s;
+      b.pts.push({ x: Math.cos(a) * r, y: Math.sin(a) * r * 0.8 + R * 0.10 * b.s, u: 0.05,
+        s: rnd(1, 2), tw: rnd(1, 3), ph: rnd(0, TAU), col: [255, 205, 90] });
+    }
+  });
+  // floating square bokeh
+  for (let i = 0; i < 42; i++) {
+    bokeh.push({ x: rnd(0, W), y: rnd(0, H), s: rnd(2, 7), vy: rnd(4, 14),
+      drift: rnd(-6, 6), a: rnd(0.15, 0.7), ph: rnd(0, TAU),
+      col: [[255, 255, 255], [255, 214, 106], [255, 120, 200], [120, 180, 255]][i % 4] });
+  }
+}
+
+/* ---------- interaction ---------- */
+let mouse = { x: 0.5, y: 0.5, tx: 0.5, ty: 0.5 };
+stage.addEventListener('pointermove', e => {
+  const r = stage.getBoundingClientRect();
+  mouse.tx = (e.clientX - r.left) / r.width;
+  mouse.ty = (e.clientY - r.top) / r.height;
+});
+stage.addEventListener('pointerdown', e => {
+  const r = stage.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  for (let i = 0; i < 160; i++) {
+    const a = rnd(0, TAU), sp = rnd(20, 160);
+    sparks.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 30,
+      life: 1, s: rnd(1.5, 3.5), col: lerpColor(Math.random()) });
+  }
+  if (audioOn) pluck(true);
+});
+
+/* ---------- animation ---------- */
+const CYCLE = 26; // seconds per bloom cycle
+const T_OFF = parseFloat(new URLSearchParams(location.search).get('t') || '0') || 0;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const easeInOut = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+let t0 = performance.now();
+let fpsCount = 0, fpsTime = 0, fpsVal = 60;
+
+const elXY = document.getElementById('xy');
+const elAng = document.getElementById('ang');
+const elBloom = document.getElementById('bloom');
+const elTemp = document.getElementById('temp');
+const elFps = document.getElementById('fps');
+
+function phaseAt(t) {
+  const p = (t % CYCLE) / CYCLE;
+  let stem = 0, bud = 0, bloom = 0, scatter = 0;
+  if (p < 0.16) stem = easeOut(p / 0.16);
+  else stem = 1;
+  if (p >= 0.14 && p < 0.30) bud = easeOut((p - 0.14) / 0.16);
+  else if (p >= 0.30) bud = 1;
+  if (p >= 0.30 && p < 0.56) bloom = easeOut((p - 0.30) / 0.26);
+  else if (p >= 0.56 && p < 0.78) bloom = 1;
+  else if (p >= 0.78) { bloom = 1; scatter = easeInOut((p - 0.78) / 0.22); }
+  return { p, stem, bud, bloom, scatter };
+}
+
+function draw(t) {
+  const dt = Math.min(0.05, (t - (draw.last || t)) / 1000); draw.last = t;
+  const sec = t / 1000 + T_OFF;
+  const { p, stem, bud, bloom, scatter } = phaseAt(sec);
+  mouse.x += (mouse.tx - mouse.x) * 0.04;
+  mouse.y += (mouse.ty - mouse.y) * 0.04;
+  const parX = (mouse.x - 0.5) * 14, parY = (mouse.y - 0.5) * 10;
+  const sway = Math.sin(sec * 0.5) * R * 0.012 * bloom;
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'lighter';
+
+  // bokeh (behind)
+  for (const b of bokeh) {
+    b.y -= b.vy * dt; b.x += Math.sin(sec * 0.3 + b.ph) * b.drift * dt;
+    if (b.y < -10) { b.y = H + 10; b.x = rnd(0, W); }
+    const a = b.a * (0.5 + 0.5 * Math.sin(sec * 0.8 + b.ph));
+    ctx.globalAlpha = a;
+    ctx.fillStyle = `rgb(${b.col[0]},${b.col[1]},${b.col[2]})`;
+    ctx.fillRect(b.x, b.y, b.s, b.s);
+  }
+
+  // stem (grows first)
+  if (stem > 0.01) {
+    ctx.fillStyle = 'rgb(124,252,154)';
+    for (const s of stemPts) {
+      if (s.t > stem) continue;
+      const tw = 0.5 + 0.5 * Math.sin(sec * s.tw + s.ph);
+      ctx.globalAlpha = 0.28 + 0.55 * tw;
+      ctx.fillRect(s.x + parX * 0.4, s.y, s.s, s.s);
+    }
+    // telemetry numbers climbing the stem
+    if (stem > 0.3 && stem < 1) {
+      ctx.font = '11px monospace'; ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(124,252,154,0.8)';
+      const nums = ['0.70', '0.61', '0.53', '0.44'];
+      nums.forEach((n, i) => {
+        const y = stemBot - (stemBot - stemTop) * (0.25 + i * 0.2) * stem;
+        ctx.globalAlpha = 0.75;
+        ctx.fillText(n, CX + R * 0.06, y);
+      });
+    }
+  }
+
+  // main bloom
+  const open = bud * (0.35 + 0.65 * bloom);      // petals closed in bud, open in bloom
+  const scale = (0.45 + 0.55 * bud) * (0.92 + 0.08 * bloom);
+  const fade = 1 - scatter;
+  for (const pt of P) {
+    const vis = pt.u <= 0.08 ? 1 : open;          // core visible early
+    if (vis < 0.03) continue;
+    // petals unfurl: interpolate between folded (near centre) and open position
+    const fold = 1 - open;
+    const fx = pt.x * (1 - fold * 0.55) * 1.18; // slightly wider than tall, like the reference
+    const fy = pt.y * (1 - fold * 0.45) + fold * R * 0.28;
+    const sx = fx * scale + CX + parX + sway;
+    const sy = fy * scale + CY + parY;
+    // dissolve scatter
+    const dx = pt.sx * scatter * R * 0.9, dy = pt.sy * scatter * R * 0.9 - scatter * 40;
+    const tw = 0.55 + 0.45 * Math.sin(sec * pt.tw + pt.ph);
+    ctx.globalAlpha = Math.max(0, (0.25 + 0.75 * tw) * vis * fade * pt.glow);
+    ctx.fillStyle = `rgb(${pt.col[0] | 0},${pt.col[1] | 0},${pt.col[2] | 0})`;
+    ctx.fillRect(sx + dx, sy + dy, pt.s, pt.s);
+  }
+
+  // satellite buds
+  for (const b of buds) {
+    const bp = (p + b.ph) % 1;
+    const bBloom = bp < 0.3 ? 0 : bp < 0.6 ? easeOut((bp - 0.3) / 0.3) : 1;
+    const bx = b.fx * W + parX * 0.6, by = b.fy * H + parY * 0.6;
+    for (const pt of b.pts) {
+      const tw = 0.55 + 0.45 * Math.sin(sec * pt.tw + pt.ph);
+      ctx.globalAlpha = (0.3 + 0.7 * tw) * (0.35 + 0.65 * bBloom);
+      ctx.fillStyle = `rgb(${pt.col[0] | 0},${pt.col[1] | 0},${pt.col[2] | 0})`;
+      ctx.fillRect(bx + pt.x, by + pt.y, pt.s, pt.s);
+    }
+  }
+
+  // click sparks
+  for (let i = sparks.length - 1; i >= 0; i--) {
+    const s = sparks[i];
+    s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 60 * dt; s.life -= dt * 0.9;
+    if (s.life <= 0) { sparks.splice(i, 1); continue; }
+    ctx.globalAlpha = s.life;
+    ctx.fillStyle = `rgb(${s.col[0] | 0},${s.col[1] | 0},${s.col[2] | 0})`;
+    ctx.fillRect(s.x, s.y, s.s, s.s);
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+
+  // HUD readouts
+  elBloom.textContent = 'BLOOM ' + (bloom * 100).toFixed(1).padStart(5, '0') + '%';
+  elXY.textContent = 'X ' + (-0.09 + Math.sin(sec * 0.11) * 0.06).toFixed(2) +
+    '  Y ' + (0.04 + Math.cos(sec * 0.13) * 0.05).toFixed(2);
+  elAng.textContent = '\u2220 ' + (-7.2 + Math.sin(sec * 0.2) * 1.4).toFixed(1) + '\u00b0';
+  elTemp.textContent = (36.2 + Math.sin(sec * 0.07) * 0.6).toFixed(1) + '\u00b0C';
+
+  fpsCount++; fpsTime += dt;
+  if (fpsTime >= 0.5) { fpsVal = Math.round(fpsCount / fpsTime); fpsCount = 0; fpsTime = 0;
+    elFps.textContent = fpsVal + ' FPS'; }
+  requestAnimationFrame(draw);
+}
+
+/* ---------- generative sound (WebAudio, starts on tap) ---------- */
+let audioOn = false, actx = null, padGain = null;
+const SCALE = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50]; // C5 D5 E5 G5 A5 C6
+function initAudio() {
+  actx = new (window.AudioContext || window.webkitAudioContext)();
+  const master = actx.createGain(); master.gain.value = 0.9; master.connect(actx.destination);
+  // pad: slow detuned sines through a lowpass
+  padGain = actx.createGain(); padGain.gain.value = 0.0;
+  const filt = actx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 750;
+  padGain.connect(filt); filt.connect(master);
+  [130.81, 196.00, 246.94, 329.63].forEach((f, i) => {
+    const o = actx.createOscillator(); o.type = i < 2 ? 'sine' : 'triangle';
+    o.frequency.value = f; o.detune.value = rnd(-6, 6);
+    const g = actx.createGain(); g.gain.value = 0.05;
+    o.connect(g); g.connect(padGain); o.start();
+  });
+  const lfo = actx.createOscillator(); lfo.frequency.value = 0.07;
+  const lg = actx.createGain(); lg.gain.value = 300;
+  lfo.connect(lg); lg.connect(filt.frequency); lfo.start();
+  padGain.gain.linearRampToValueAtTime(0.5, actx.currentTime + 3);
+  // delay for plucks
+  const dl = actx.createDelay(1); dl.delayTime.value = 0.42;
+  const fb = actx.createGain(); fb.gain.value = 0.35;
+  const wet = actx.createGain(); wet.gain.value = 0.3;
+  dl.connect(fb); fb.connect(dl); dl.connect(wet); wet.connect(master);
+  initAudio.delay = dl; initAudio.master = master;
+  setInterval(() => { if (audioOn && Math.random() < 0.75) pluck(false); }, 2600);
+}
+function pluck(bright) {
+  if (!actx) return;
+  const t = actx.currentTime;
+  const f = SCALE[Math.floor(Math.random() * SCALE.length)] * (bright ? 2 : 1);
+  const o = actx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+  const g = actx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.16, t + 0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 2.2);
+  o.connect(g); g.connect(initAudio.master); g.connect(initAudio.delay);
+  o.start(t); o.stop(t + 2.4);
+}
+const soundBtn = document.getElementById('soundBtn');
+soundBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  if (!audioOn) {
+    if (!actx) initAudio();
+    actx.resume();
+    audioOn = true;
+    soundBtn.textContent = '\u266A SOUND ON';
+    soundBtn.classList.add('on');
+    pluck(true);
+  } else {
+    audioOn = false;
+    if (padGain) padGain.gain.linearRampToValueAtTime(0.0, actx.currentTime + 0.5);
+    soundBtn.textContent = '\u266A SOUND OFF';
+    soundBtn.classList.remove('on');
+    setTimeout(() => { if (!audioOn && actx) actx.suspend(); }, 600);
+  }
+});
+
+resize();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
