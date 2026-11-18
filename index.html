@@ -4,43 +4,322 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Felix's Playground</title>
+  <meta name="description" content="Felix 的前端開發遊樂場 — 滿版 ASCII 鯊魚在背景裡游來游去。">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
     body {
+      font-family: system-ui, -apple-system, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
+      background: #f6f5f1;
+      color: #191919;
+      overflow-x: hidden;
+    }
+    #sea {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+      display: block;
+      z-index: 0;
+    }
+    main {
+      position: relative; z-index: 1;
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #0f1115;
-      color: #f2f2f2;
-      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
       text-align: center;
-      padding: 2rem;
+      padding: 2rem 1.25rem 3rem;
+      pointer-events: none;
     }
-    main { max-width: 640px; }
-    h1 { font-size: 2.5rem; margin-bottom: 1rem; }
-    p { font-size: 1.125rem; line-height: 1.8; color: #c9cdd6; margin-bottom: 0.75rem; }
-    .works { margin-top: 2rem; display: flex; flex-direction: column; gap: 0.75rem; }
+    main > * { pointer-events: auto; }
+    .eyebrow {
+      font-size: 0.8rem; letter-spacing: 0.35em; text-transform: uppercase;
+      color: #8a877f; margin-bottom: 1rem;
+      text-shadow: 0 0 12px #f6f5f1, 0 0 4px #f6f5f1;
+    }
+    h1 {
+      font-size: clamp(2.4rem, 7vw, 4.2rem);
+      font-weight: 650; letter-spacing: -0.02em; line-height: 1.08;
+      text-shadow: 0 0 18px #f6f5f1, 0 0 6px #f6f5f1;
+    }
+    h1 .shark { color: #4a4a48; }
+    .sub {
+      margin-top: 1rem; font-size: 1.1rem; line-height: 1.8; color: #55524b;
+      text-shadow: 0 0 12px #f6f5f1, 0 0 4px #f6f5f1;
+    }
+    .works {
+      margin-top: 2.25rem; width: 100%; max-width: 560px;
+      display: flex; flex-direction: column; gap: 0.75rem;
+    }
     .works a {
-      display: block; padding: 1rem 1.25rem; border: 1px solid #2a2f3a; border-radius: 12px;
-      color: #f2f2f2; text-decoration: none; text-align: left; background: #171a21;
+      display: block; padding: 1rem 1.25rem; text-align: left; text-decoration: none;
+      color: #191919; background: rgba(255,255,255,0.72);
+      border: 1px solid rgba(0,0,0,0.12); border-radius: 14px;
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      transition: border-color 0.15s, transform 0.15s;
     }
-    .works a:hover { border-color: #7c6cff; }
-    .works a b { display: block; font-size: 1.1rem; margin-bottom: 0.25rem; }
-    .works a span { font-size: 0.95rem; color: #9aa3b2; }
+    .works a:hover { border-color: #191919; transform: translateY(-1px); }
+    .works a b { display: block; font-size: 1.05rem; margin-bottom: 0.25rem; }
+    .works a span { font-size: 0.92rem; color: #6b675e; line-height: 1.5; }
+    .controls {
+      position: fixed; z-index: 2;
+      right: 1rem; bottom: 1rem;
+      display: flex; gap: 0.5rem;
+    }
+    .controls button {
+      font: inherit; font-size: 0.85rem;
+      padding: 0.5rem 0.8rem; border-radius: 999px;
+      border: 1px solid rgba(0,0,0,0.16);
+      background: rgba(255,255,255,0.8); color: #33322f;
+      cursor: pointer; backdrop-filter: blur(6px);
+    }
+    .controls button:hover { border-color: #191919; }
+    .hint {
+      position: fixed; z-index: 2; left: 1rem; bottom: 1rem;
+      font-size: 0.8rem; color: #9a968c;
+      text-shadow: 0 0 8px #f6f5f1;
+    }
+    @media (max-width: 640px) {
+      .hint { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .works a { transition: none; }
+    }
   </style>
 </head>
 <body>
+  <canvas id="sea" aria-hidden="true"></canvas>
   <main>
-    <h1>Felix's Playground</h1>
-    <p>這裡是 Felix 的前端開發遊樂場，部署在 GitHub Pages 上。</p>
-    <p>更多專案將會陸續加入這裡，敬請期待。</p>
+    <div class="eyebrow">Felix &middot; GitHub Pages</div>
+    <h1>Felix&rsquo;s <span class="shark">Playground</span></h1>
+    <p class="sub">這裡是 Felix 的前端開發遊樂場。<br>背景裡的鯊魚是用 ASCII 字符即時畫出來的，會自己游來游去。</p>
     <div class="works">
       <a href="lotus.html">
         <b>🪷 Magical Lotus</b>
         <span>粒子蓮花綻放循環 — 發光點陣花瓣、HUD 遙測、生成式環境音效</span>
       </a>
+      <a href="https://github.com/Chih-Po-Hung" target="_blank" rel="noopener">
+        <b>💻 GitHub — Chih-Po-Hung</b>
+        <span>更多前端作品與實驗都在這裡</span>
+      </a>
     </div>
   </main>
+  <div class="hint">ASCII sharks, swimming live — no video, all code</div>
+  <div class="controls">
+    <button id="more" type="button">🦈 再來一隻</button>
+    <button id="pause" type="button">⏸ 暫停</button>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+  var canvas = document.getElementById('sea');
+  var ctx = canvas.getContext('2d');
+  var CELL = 11;
+  var CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#$%&@*+=:;.';
+  var W = 0, H = 0, DPR = 1;
+  var sharks = [], trail = [], dust = [];
+  var running = true;
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function pick(s) { return s[Math.floor(Math.random() * s.length)]; }
+
+  function resize() {
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.font = '10px "SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+  }
+
+  // Shark body half-height profile, u = x / L in [0, 1].
+  function halfH(u, hgt) {
+    if (u < 0 || u > 0.92) return 0;
+    var s = Math.sin(Math.PI * Math.pow(u, 1.6));
+    var v = Math.pow(s, 0.9);
+    if (u > 0.8) v *= 1 - (u - 0.8) / 0.12 * 0.85;
+    return hgt * v;
+  }
+  function inTri(px, py, ax, ay, bx, by, cx, cy) {
+    var d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+    var a = ((by - cy) * (px - cx) + (cx - bx) * (py - cy)) / d;
+    var b = ((cy - ay) * (px - cx) + (ax - cx) * (py - cy)) / d;
+    var c = 1 - a - b;
+    return a >= 0 && b >= 0 && c >= 0;
+  }
+
+  function makeShark(size) {
+    var L = size;
+    var hgt = L * 0.10;
+    var dir = Math.random() < 0.5 ? 1 : -1; // 1: head right, swims right
+    var cols = Math.ceil(L / CELL) + 2;
+    var rows = Math.ceil((hgt * 4.6) / CELL) + 2;
+    var grid = [];
+    for (var i = 0; i < cols; i++) {
+      grid[i] = [];
+      for (var j = 0; j < rows; j++) grid[i][j] = pick(CHARS);
+    }
+    return {
+      L: L, hgt: hgt, dir: dir,
+      x: dir > 0 ? -L - rand(0, 300) : W + L + rand(0, 300),
+      y: rand(H * 0.12, H * 0.88),
+      speed: rand(40, 75) * (0.6 + 0.8 * (size / 640)),
+      phase: rand(0, Math.PI * 2),
+      amp: L * 0.04,
+      cols: cols, rows: rows, grid: grid,
+      seed: Math.random() * 1000
+    };
+  }
+  function wave(sh, lx, t) {
+    var u = Math.max(0, Math.min(1, lx / sh.L));
+    return sh.amp * Math.pow(u, 1.6) * Math.sin(2 * Math.PI * u * 1.0 - t * 2.4 + sh.phase);
+  }
+  function sharkCellInside(sh, lx, ly, t) {
+    // ly is the offset from the shark's centreline; the wave only moves the
+    // whole column on screen (applied in drawShark), it must not enter the
+    // inside test, or the body gets smeared by twice the wave amplitude.
+    var u = lx / sh.L;
+    if (u < 0.005 || u > 1.02) return null;
+    var dy = ly;
+    if (u <= 0.92) {
+      var hh = halfH(u, sh.hgt);
+      if (Math.abs(dy) < hh) return { a: 0.72 - 0.3 * Math.abs(dy) / Math.max(hh, 1), dark: Math.abs(dy) < hh * 0.25 };
+    }
+    // dorsal fin
+    var dh = halfH(0.45, sh.hgt);
+    if (inTri(lx, dy, sh.L * 0.38, -dh, sh.L * 0.48, -dh - sh.hgt * 0.9, sh.L * 0.58, -halfH(0.58, sh.hgt))) return { a: 0.5, dark: false };
+    // pectoral fin
+    var ph = halfH(0.36, sh.hgt);
+    if (inTri(lx, dy, sh.L * 0.30, ph, sh.L * 0.40, ph + sh.hgt * 0.7, sh.L * 0.48, halfH(0.48, sh.hgt))) return { a: 0.5, dark: false };
+    // caudal fin: upper and lower lobes
+    if (inTri(lx, dy, sh.L * 0.90, 0, sh.L * 1.0, -sh.hgt * 1.2, sh.L * 0.95, 0)) return { a: 0.55, dark: false };
+    if (inTri(lx, dy, sh.L * 0.90, 0, sh.L * 0.99, sh.hgt * 0.7, sh.L * 0.95, 0)) return { a: 0.55, dark: false };
+    return null;
+  }
+  function drawShark(sh, t) {
+    var j0 = -Math.ceil(sh.rows / 2);
+    for (var i = 0; i < sh.cols; i++) {
+      var lx = i * CELL;
+      for (var j = j0; j < j0 + sh.rows; j++) {
+        var ly = j * CELL;
+        var hit = sharkCellInside(sh, lx, ly, t);
+        if (!hit) continue;
+        var sx = sh.x + sh.dir * lx;
+        var sy = sh.y + wave(sh, lx, t) + ly * 1.0;
+        if (sx < -20 || sx > W + 20 || sy < -20 || sy > H + 20) continue;
+        // eye: a darker mark near the head
+        var isEye = Math.abs(lx - sh.L * 0.08) < CELL * 0.6 && Math.abs(ly + sh.hgt * 0.3) < CELL * 0.6;
+        var alpha = isEye ? 0.9 : Math.max(0.2, Math.min(0.72, hit.a + (hit.dark ? 0.12 : 0)));
+        ctx.fillStyle = 'rgba(46, 44, 40,' + alpha.toFixed(2) + ')';
+        ctx.fillText(isEye ? '●' : sh.grid[i][j + Math.ceil(sh.rows / 2)], sx, sy);
+      }
+    }
+  }
+  function spawnTrail(sh, t) {
+    var lx = sh.L * 0.97;
+    var tx = sh.x + sh.dir * lx;
+    var ty = sh.y + wave(sh, lx, t);
+    for (var k = 0; k < 1; k++) {
+      if (trail.length > 160) return;
+      trail.push({
+        x: tx + rand(-6, 6), y: ty + rand(-10, 10),
+        vx: -sh.dir * rand(6, 18), vy: rand(-6, 8),
+        ch: pick(CHARS), a: rand(0.18, 0.35), life: 1
+      });
+    }
+  }
+  function drawTrail(dt) {
+    for (var i = trail.length - 1; i >= 0; i--) {
+      var p = trail[i];
+      p.life -= dt * 0.9;
+      if (p.life <= 0) { trail.splice(i, 1); continue; }
+      p.x += p.vx * dt; p.y += p.vy * dt + Math.sin(p.life * 9) * 0.12;
+      ctx.fillStyle = 'rgba(90, 86, 78,' + (p.a * p.life).toFixed(2) + ')';
+      ctx.fillText(p.ch, p.x, p.y);
+    }
+  }
+  function initDust() {
+    dust = [];
+    for (var i = 0; i < 46; i++) {
+      dust.push({ x: rand(0, W), y: rand(0, H), v: rand(4, 12), ch: pick('·.:') });
+    }
+  }
+  function drawDust(dt) {
+    for (var i = 0; i < dust.length; i++) {
+      var d = dust[i];
+      d.x -= d.v * dt;
+      if (d.x < -10) { d.x = W + 10; d.y = rand(0, H); }
+      ctx.fillStyle = 'rgba(120, 116, 108, 0.28)';
+      ctx.fillText(d.ch, d.x, d.y);
+    }
+  }
+
+  var last = 0, t = 0;
+  function frame(ts) {
+    if (!running) return;
+    var dt = Math.min(0.05, (ts - last) / 1000 || 0.016);
+    last = ts; t += dt;
+    ctx.clearRect(0, 0, W, H);
+    drawDust(dt);
+    for (var i = 0; i < sharks.length; i++) {
+      var sh = sharks[i];
+      sh.x += sh.dir * sh.speed * dt;
+      if ((sh.dir > 0 && sh.x - sh.L * 0.2 > W + sh.L) || (sh.dir < 0 && sh.x + sh.L * 0.2 < -sh.L)) {
+        var fresh = makeShark(sh.L);
+        fresh.y = rand(H * 0.1, H * 0.9);
+        sharks[i] = fresh;
+        continue;
+      }
+      spawnTrail(sh, t);
+      drawShark(sh, t);
+    }
+    drawTrail(dt);
+    requestAnimationFrame(frame);
+  }
+
+  function start() {
+    resize();
+    sharks = [
+      makeShark(Math.min(640, W * 0.5)),
+      makeShark(Math.min(400, W * 0.3)),
+      makeShark(Math.min(260, W * 0.2))
+    ];
+    // Start on-screen so the first paint already shows sharks.
+    sharks[0].x = sharks[0].dir > 0 ? W * 0.12 : W * 0.88;
+    sharks[0].y = rand(H * 0.55, H * 0.85);
+    sharks[1].x = sharks[1].dir > 0 ? W * 0.55 : W * 0.45;
+    sharks[1].y = rand(H * 0.06, H * 0.3);
+    sharks[2].x = sharks[2].dir > 0 ? W * 0.3 : W * 0.7;
+    sharks[2].y = rand(H * 0.7, H * 0.92);
+    initDust();
+    if (reduced) {
+      ctx.clearRect(0, 0, W, H);
+      drawDust(0);
+      for (var i = 0; i < sharks.length; i++) drawShark(sharks[i], 1.2);
+      return;
+    }
+    requestAnimationFrame(frame);
+  }
+
+  document.getElementById('more').addEventListener('click', function () {
+    if (sharks.length >= 8) return;
+    sharks.push(makeShark(rand(180, 480)));
+  });
+  document.getElementById('pause').addEventListener('click', function () {
+    running = !running;
+    this.textContent = running ? '⏸ 暫停' : '▶ 繼續';
+    if (running) { last = performance.now(); requestAnimationFrame(frame); }
+  });
+  window.addEventListener('resize', function () {
+    resize();
+    if (reduced) start();
+  });
+  start();
+})();
+</script>
 </body>
 </html>
