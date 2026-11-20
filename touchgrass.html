@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>touchgrass.here — Touch Grass</title>
+<meta name="description" content="The network is down. The meadow is up. Go outside and touch grass.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%231b1b1b'/%3E%3Ccircle cx='9' cy='20' r='2.4' fill='%237ec850'/%3E%3Ccircle cx='16' cy='14' r='2.4' fill='%23ffb347'/%3E%3Ccircle cx='23' cy='20' r='2.4' fill='%23ff7eb6'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1b1b1b;
+    --panel:#1b1b1b;
+    --ink:#f2efe9;
+    --ink-dim:rgba(242,239,233,.72);
+    --line:rgba(242,239,233,.14);
+    --btn:#3a3a3a;
+    --btn-hover:#484848;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    display:flex;flex-direction:column;
+    overflow:hidden;
+  }
+  /* ---------- art ---------- */
+  .art{position:relative;flex:1 1 auto;min-height:0}
+  .art canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .art .hint{
+    position:absolute;left:20px;top:16px;
+    font-family:"IBM Plex Mono",ui-monospace,monospace;
+    font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:rgba(242,239,233,.55);pointer-events:none;user-select:none;
+  }
+  /* ---------- panel ---------- */
+  .panel{
+    flex:0 0 auto;
+    padding:34px 44px 30px;
+    border-top:1px solid var(--line);
+    display:flex;flex-direction:column;gap:16px;
+  }
+  .panel h1{
+    font-family:"Fraunces",Georgia,"Times New Roman",serif;
+    font-weight:500;
+    font-size:clamp(38px,5.2vw,58px);
+    line-height:1.04;letter-spacing:.01em;
+  }
+  .panel p{
+    max-width:640px;
+    font-size:15.5px;line-height:1.55;
+    color:var(--ink-dim);
+  }
+  .row{
+    margin-top:14px;
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+  }
+  .status{
+    font-family:"IBM Plex Mono",ui-monospace,monospace;
+    font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink);
+    display:flex;align-items:center;gap:9px;
+  }
+  .status .dot{
+    width:8px;height:8px;border-radius:50%;
+    background:#7ec850;
+    box-shadow:0 0 10px rgba(126,200,80,.9);
+    animation:pulse 2.2s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .copybtn{
+    appearance:none;border:0;cursor:pointer;
+    background:var(--btn);color:var(--ink);
+    font:inherit;font-size:14.5px;
+    padding:11px 20px;border-radius:9px;
+    display:inline-flex;align-items:center;gap:9px;
+    transition:background .18s ease,transform .12s ease;
+  }
+  .copybtn:hover{background:var(--btn-hover)}
+  .copybtn:active{transform:scale(.97)}
+  .copybtn svg{width:15px;height:15px;flex:0 0 auto}
+  @media (max-width:640px){
+    .panel{padding:24px 22px 22px}
+    .panel p{font-size:14.5px}
+    .art .hint{display:none}
+  }
+</style>
+</head>
+<body>
+  <section class="art" id="art">
+    <canvas id="scene"></canvas>
+    <div class="hint">Move to stir the wind · Click to scatter seeds</div>
+  </section>
+
+  <section class="panel">
+    <h1>Touch Grass</h1>
+    <p>The network is down. The meadow is up. Step outside and route yourself through real sunlight — zero latency, full bandwidth, no login required. Your feed will still be there when you get back.</p>
+    <div class="row">
+      <div class="status"><span class="dot"></span><span>SYS.ROUTE: OUTSIDE</span></div>
+      <button class="copybtn" id="copyBtn" type="button" aria-label="Copy link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <span id="copyLabel">Copy Link</span>
+      </button>
+    </div>
+  </section>
+
+<script>
+(function(){
+  "use strict";
+  var canvas = document.getElementById('scene');
+  var ctx = canvas.getContext('2d');
+  var wrap = document.getElementById('art');
+  var W = 0, H = 0, DPR = 1;
+
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = wrap.clientWidth; H = wrap.clientHeight;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  /* deterministic per-cell hash -> 0..1 */
+  function hash(x, y){
+    var n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+    return n - Math.floor(n);
+  }
+  function lerp(a, b, t){ return a + (b - a) * t; }
+  function mix(c1, c2, t){
+    return [Math.round(lerp(c1[0], c2[0], t)),
+            Math.round(lerp(c1[1], c2[1], t)),
+            Math.round(lerp(c1[2], c2[2], t))];
+  }
+  function rgba(c, a){ return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+
+  var SKY_SPECKS = [[255,179,71],[255,126,182],[167,139,250],[126,200,80],[242,239,233],[255,107,53]];
+  var FLOWERS = [[255,126,182],[255,179,71],[167,139,250],[255,240,214],[255,107,53],[242,239,233]];
+  var SUN_CORE = [255,240,214], SUN_EDGE = [255,140,40];
+  var HILL_FAR = [38,84,40], HILL_NEAR = [74,140,52], GRASS_TIP = [168,224,99];
+
+  /* pointer wind */
+  var pointer = { x: -9999, y: -9999, gust: 0, lastMove: 0 };
+  wrap.addEventListener('pointermove', function(e){
+    var r = wrap.getBoundingClientRect();
+    pointer.x = e.clientX - r.left;
+    pointer.y = e.clientY - r.top;
+    pointer.gust = Math.min(pointer.gust + 0.35, 1.6);
+    pointer.lastMove = performance.now();
+  });
+  wrap.addEventListener('pointerleave', function(){ pointer.x = -9999; pointer.y = -9999; });
+
+  /* seed burst particles */
+  var seeds = [];
+  wrap.addEventListener('pointerdown', function(e){
+    var r = wrap.getBoundingClientRect();
+    var x = e.clientX - r.left, y = e.clientY - r.top;
+    for (var i = 0; i < 46; i++){
+      var a = Math.random() * Math.PI * 2, sp = 0.4 + Math.random() * 2.2;
+      seeds.push({
+        x: x, y: y,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 0.7,
+        life: 1, decay: 0.004 + Math.random() * 0.008,
+        c: SKY_SPECKS[(Math.random() * SKY_SPECKS.length) | 0],
+        r: 1.2 + Math.random() * 2.2
+      });
+    }
+  });
+
+  function hillY(x, t){
+    /* rolling horizon, gently breathing */
+    return H * 0.60
+      + Math.sin(x * 0.006 + 0.8) * H * 0.045
+      + Math.sin(x * 0.017 + 2.1) * H * 0.016
+      + Math.sin(t * 0.00022) * H * 0.006;
+  }
+
+  var ARCS = [
+    { c: [255,126,182], off: 0.0, amp: 0.30, y: 0.46 },
+    { c: [255,240,214], off: 0.33, amp: 0.36, y: 0.50 },
+    { c: [96,165,250], off: 0.66, amp: 0.27, y: 0.43 }
+  ];
+
+  function drawArcs(t){
+    for (var k = 0; k < ARCS.length; k++){
+      var arc = ARCS[k];
+      var baseY = H * arc.y, amp = H * arc.amp;
+      var phase = (t * 0.00005 + arc.off) % 1;         /* dash travel */
+      var steps = 90;
+      ctx.fillStyle = rgba(arc.c, 0.85);
+      for (var i = 0; i <= steps; i++){
+        var u = i / steps;
+        var x = u * W;
+        var y = baseY - Math.sin(u * Math.PI) * amp;
+        var d = (u + phase) % 0.14;                    /* dotted rhythm */
+        if (d > 0.075) continue;
+        ctx.beginPath();
+        ctx.arc(x, y, 1.6, 0, 6.2832);
+        ctx.fill();
+      }
+    }
+  }
+
+  function draw(t){
+    ctx.fillStyle = '#1b1b1b';
+    ctx.fillRect(0, 0, W, H);
+
+    var cell = W < 640 ? 11 : 13;
+    var cols = Math.ceil(W / cell), rows = Math.ceil(H / cell);
+    var sunX = W * 0.70, sunY = H * 0.30, sunR = Math.min(W, H) * 0.16;
+    pointer.gust *= 0.985;
+
+    for (var gy = 0; gy < rows; gy++){
+      var y = gy * cell + cell / 2;
+      for (var gx = 0; gx < cols; gx++){
+        var x = gx * cell + cell / 2;
+        var h = hash(gx, gy);
+        var horizon = hillY(x, t);
+
+        /* ---- sun disc (ragged, dithered edge) ---- */
+        var dx = x - sunX, dy = y - sunY;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < sunR * (0.90 + h * 0.18)){
+          var sc = mix(SUN_EDGE, SUN_CORE, Math.max(0, 1 - dist / sunR));
+          var sr = 2.6 + (1 - dist / sunR) * 1.6;
+          ctx.fillStyle = rgba(sc, 0.95);
+          ctx.beginPath(); ctx.arc(x, y, sr, 0, 6.2832); ctx.fill();
+          continue;
+        }
+
+        if (y < horizon){
+          /* ---- far hill band: darker silhouette layer behind the meadow ---- */
+          var farY = horizon - H * 0.13 + Math.sin(x * 0.004 + 5.0) * H * 0.03;
+          if (y > farY && h > 0.15){
+            ctx.fillStyle = rgba([30, 66, 32], 0.9);
+            ctx.beginPath(); ctx.arc(x, y, 1.6, 0, 6.2832); ctx.fill();
+            continue;
+          }
+          /* ---- sky: sparse coloured specks + rare crosses ---- */
+          if (h > 0.90){
+            var sc2 = SKY_SPECKS[(hash(gy, gx) * SKY_SPECKS.length) | 0];
+            var tw = 0.45 + 0.55 * Math.abs(Math.sin(t * 0.001 + h * 40));
+            ctx.fillStyle = rgba(sc2, 0.85 * tw);
+            if (h > 0.975){
+              var s = 3.4;
+              ctx.fillRect(x - s, y - 1, s * 2, 2);
+              ctx.fillRect(x - 1, y - s, 2, s * 2);
+            } else {
+              ctx.beginPath(); ctx.arc(x, y, 1.4 + h * 1.2, 0, 6.2832); ctx.fill();
+            }
+          }
+          continue;
+        }
+
+        /* ---- meadow ---- */
+        var depth = Math.min(1, (y - horizon) / (H - horizon + 1));   /* 0 top -> 1 bottom */
+        var sway = Math.sin(x * 0.045 + t * 0.0016 + y * 0.02) * 0.5 + 0.5;
+        var gustHere = 0;
+        if (pointer.x > -999){
+          var pdx = x - pointer.x, pdy = y - pointer.y;
+          var pd = Math.sqrt(pdx * pdx + pdy * pdy);
+          gustHere = Math.max(0, 1 - pd / 190) * pointer.gust;
+        }
+        var patch = hash(gx >> 2, gy >> 1) * 0.30 - 0.15;   /* clumpy meadow texture */
+        var light = 0.25 + depth * 0.55 + sway * 0.20 + gustHere * 0.35 + patch;
+        var gc = mix(HILL_FAR, depth < 0.45 ? HILL_NEAR : GRASS_TIP, Math.min(1, light));
+
+        /* wildflowers: sparse hash cells in the front meadow */
+        if (depth > 0.25 && h > 0.955){
+          var fc = FLOWERS[(hash(gx * 3, gy * 7) * FLOWERS.length) | 0];
+          var pulse = 0.7 + 0.3 * Math.sin(t * 0.002 + h * 60);
+          ctx.fillStyle = rgba(fc, 0.95 * pulse);
+          var fr = (2.2 + depth * 1.6) * pulse;
+          if (h > 0.985){
+            ctx.fillRect(x - fr, y - 1.1, fr * 2, 2.2);
+            ctx.fillRect(x - 1.1, y - fr, 2.2, fr * 2);
+          } else {
+            ctx.beginPath(); ctx.arc(x, y, fr, 0, 6.2832); ctx.fill();
+          }
+          continue;
+        }
+
+        var gr = 1.3 + depth * 1.5 + sway * 0.7 + gustHere * 1.4;
+        if (h < 0.05){ /* occasional square blade clump, like the reference texture */
+          ctx.fillStyle = rgba(gc, 0.95);
+          ctx.fillRect(x - gr, y - gr, gr * 2, gr * 2);
+        } else {
+          ctx.fillStyle = rgba(gc, 0.92);
+          ctx.beginPath(); ctx.arc(x, y, gr, 0, 6.2832); ctx.fill();
+        }
+      }
+    }
+
+    drawArcs(t);
+
+    /* ---- seeds ---- */
+    for (var i = seeds.length - 1; i >= 0; i--){
+      var p = seeds[i];
+      p.x += p.vx + Math.sin((t + i * 37) * 0.003) * 0.3;
+      p.y += p.vy;
+      p.vy += 0.012;                                    /* gentle gravity */
+      p.vx *= 0.992;
+      p.life -= p.decay;
+      if (p.life <= 0 || p.y > H + 6){ seeds.splice(i, 1); continue; }
+      ctx.fillStyle = rgba(p.c, Math.max(0, p.life));
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832); ctx.fill();
+    }
+
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+
+  /* ---------- copy link ---------- */
+  var btn = document.getElementById('copyBtn');
+  var label = document.getElementById('copyLabel');
+  btn.addEventListener('click', function(){
+    var url = 'https://touchgrass.here';
+    function done(){
+      label.textContent = 'Copied';
+      setTimeout(function(){ label.textContent = 'Copy Link'; }, 1600);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(done, done);
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = url; document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+      done();
+    }
+  });
+})();
+</script>
+</body>
+</html>
